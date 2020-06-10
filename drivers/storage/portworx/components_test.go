@@ -7754,4 +7754,5 @@ func reregisterComponents() {
 	component.RegisterPVCControllerComponent()
 	component.RegisterMonitoringComponent()
 	component.RegisterPrometheusComponent()
+	component.RegisterSecurityComponent()
 }

@@ -13,7 +13,7 @@ import (
 	coreops "github.com/portworx/sched-ops/k8s/core"
 	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	storagev1beta1 "k8s.io/api/storage/v1beta1"
@@ -1382,4 +1382,36 @@ func removeOwners(current, toBeDeleted []metav1.OwnerReference) []metav1.OwnerRe
 		}
 	}
 	return newOwners
+}
+
+// CreateOrUpdateSecret creates a secret if not present, else updates it
+func CreateOrUpdateSecret(
+	k8sClient client.Client,
+	secret *v1.Secret,
+	ownerRef *metav1.OwnerReference,
+) error {
+	existingSecret := &v1.Secret{}
+	err := k8sClient.Get(
+		context.TODO(),
+		types.NamespacedName{
+			Name:      secret.Name,
+			Namespace: secret.Namespace,
+		},
+		existingSecret,
+	)
+	if errors.IsNotFound(err) {
+		logrus.Debugf("Creating %s Secret", secret.Name)
+		return k8sClient.Create(context.TODO(), secret)
+	} else if err != nil {
+		return err
+	}
+
+	for _, o := range existingSecret.OwnerReferences {
+		if o.UID != ownerRef.UID {
+			secret.OwnerReferences = append(secret.OwnerReferences, o)
+		}
+	}
+
+	logrus.Debugf("Updating %s Secret", secret.Name)
+	return k8sClient.Update(context.TODO(), secret)
 }

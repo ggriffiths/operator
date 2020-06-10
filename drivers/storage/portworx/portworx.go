@@ -3,6 +3,7 @@ package portworx
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	version "github.com/hashicorp/go-version"
 	"github.com/libopenstorage/operator/drivers/storage"
@@ -29,7 +30,6 @@ const (
 	defaultSecretsProvider            = "k8s"
 	envKeyNodeWiperImage              = "PX_NODE_WIPER_IMAGE"
 	envKeyPortworxEnableTLS           = "PX_ENABLE_TLS"
-	envKeyPortworxSharedSecretKey     = "PORTWORX_AUTH_SYSTEM_KEY"
 	storageClusterDeleteMsg           = "Portworx service NOT removed. Portworx drives and data NOT wiped."
 	storageClusterUninstallMsg        = "Portworx service removed. Portworx drives and data NOT wiped."
 	storageClusterUninstallAndWipeMsg = "Portworx service removed. Portworx drives and data wiped."
@@ -360,6 +360,8 @@ func setPortworxDefaults(toUpdate *corev1alpha1.StorageCluster) {
 			},
 		}
 	}
+
+	setSecuritySpecDefaults(toUpdate)
 }
 
 func setNodeSpecDefaults(toUpdate *corev1alpha1.StorageCluster) {
@@ -410,6 +412,47 @@ func setNodeSpecDefaults(toUpdate *corev1alpha1.StorageCluster) {
 		updatedNodeSpecs = append(updatedNodeSpecs, *nodeSpecCopy)
 	}
 	toUpdate.Spec.Nodes = updatedNodeSpecs
+}
+
+func setSecuritySpecDefaults(toUpdate *corev1alpha1.StorageCluster) {
+	// all default values if one is not provided below.
+	defaultAuthTemplate := &corev1alpha1.AuthSpec{
+		GuestAccess: &corev1alpha1.GuestRoleEnabled,
+		Authenticators: &corev1alpha1.AuthenticatorsSpec{
+			SelfSigned: &corev1alpha1.SelfSignedSpec{
+				Issuer:        stringPtr("openstorage.io"),
+				TokenLifetime: metav1DurationPtr(time.Hour * 24),
+			},
+		},
+	}
+
+	if toUpdate.Spec.Security != nil {
+		if toUpdate.Spec.Security.Enabled == nil {
+			// not enabled by default
+			toUpdate.Spec.Security.Enabled = boolPtr(false)
+		} else if *toUpdate.Spec.Security.Enabled {
+			if toUpdate.Spec.Security.Auth != nil {
+				// security enabled and auth provided, add defaults if needed.
+				if toUpdate.Spec.Security.Auth.GuestAccess == nil {
+					toUpdate.Spec.Security.Auth.GuestAccess = defaultAuthTemplate.GuestAccess
+				}
+				if toUpdate.Spec.Security.Auth.Authenticators == nil || toUpdate.Spec.Security.Auth.Authenticators.SelfSigned == nil {
+					toUpdate.Spec.Security.Auth.Authenticators = defaultAuthTemplate.Authenticators
+				} else {
+					if toUpdate.Spec.Security.Auth.Authenticators.SelfSigned.Issuer == nil {
+						toUpdate.Spec.Security.Auth.Authenticators.SelfSigned.Issuer = defaultAuthTemplate.Authenticators.SelfSigned.Issuer
+					}
+					if toUpdate.Spec.Security.Auth.Authenticators.SelfSigned.TokenLifetime == nil {
+						toUpdate.Spec.Security.Auth.Authenticators.SelfSigned.TokenLifetime = defaultAuthTemplate.Authenticators.SelfSigned.TokenLifetime
+					}
+				}
+			} else {
+				// security enabled, but no auth configuration
+				toUpdate.Spec.Security.Auth = defaultAuthTemplate
+			}
+		}
+	}
+
 }
 
 func setDefaultAutopilotProviders(

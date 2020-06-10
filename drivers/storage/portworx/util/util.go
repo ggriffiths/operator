@@ -270,12 +270,12 @@ func GetValueFromEnv(ctx context.Context, client client.Client, envVar *v1.EnvVa
 			if err != nil {
 				return "", err
 			}
-			pxAuthSecret := secret.Data[key]
-			if len(pxAuthSecret) == 0 {
+			value := secret.Data[key]
+			if len(value) == 0 {
 				return "", fmt.Errorf("failed to find env var value %s in secret %s in namespace %s", key, secretName, namespace)
 			}
 
-			return string(pxAuthSecret), nil
+			return string(value), nil
 		} else if valueFrom.ConfigMapKeyRef != nil {
 			cmName := valueFrom.ConfigMapKeyRef.Name
 			key := valueFrom.ConfigMapKeyRef.Key

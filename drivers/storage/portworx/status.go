@@ -13,6 +13,7 @@ import (
 	"github.com/libopenstorage/openstorage/api"
 	"github.com/libopenstorage/openstorage/pkg/auth"
 	"github.com/libopenstorage/openstorage/pkg/grpcserver"
+	"github.com/libopenstorage/operator/drivers/storage/portworx/component"
 	pxutil "github.com/libopenstorage/operator/drivers/storage/portworx/util"
 	corev1alpha1 "github.com/libopenstorage/operator/pkg/apis/core/v1alpha1"
 	"github.com/libopenstorage/operator/pkg/util"
@@ -451,9 +452,12 @@ func isTLSEnabled() bool {
 	return err == nil && enabled
 }
 
-func (p *portworx) getOperatorToken(secretkey string) (string, error) {
+func (p *portworx) getOperatorToken(
+	cluster *corev1alpha1.StorageCluster,
+	secretkey string,
+) (string, error) {
 	claims := &auth.Claims{
-		Issuer:  "openstorage.io",
+		Issuer:  *cluster.Spec.Security.Auth.Authenticators.SelfSigned.Issuer,
 		Subject: "operator@openstorage.io",
 		Name:    "operator communications",
 		Email:   "operator@openstorage.io",
@@ -466,7 +470,8 @@ func (p *portworx) getOperatorToken(secretkey string) (string, error) {
 		return "", err
 	}
 	token, err := auth.Token(claims, signature, &auth.Options{
-		Expiration: time.Now().Add(1 * time.Hour).Unix(),
+		Expiration: time.Now().
+			Add(cluster.Spec.Security.Auth.Authenticators.SelfSigned.TokenLifetime.Duration).Unix(),
 	})
 	if err != nil {
 		return "", err
@@ -475,13 +480,17 @@ func (p *portworx) getOperatorToken(secretkey string) (string, error) {
 	return token, nil
 }
 
-func (p *portworx) getAuthSecret(
+func (p *portworx) getAdminSecret(
 	ctx context.Context,
 	cluster *corev1alpha1.StorageCluster,
 ) (string, error) {
+	var authSecret string
+	var err error
+
+	// check for provided secret
 	for _, envVar := range cluster.Spec.Env {
-		if envVar.Name == envKeyPortworxSharedSecretKey {
-			authSecret, err := pxutil.GetValueFromEnv(ctx, p.k8sClient, &envVar, cluster.Namespace)
+		if envVar.Name == component.SecurityEnvPortworxAuthJwtSharedSecret {
+			authSecret, err = pxutil.GetValueFromEnv(ctx, p.k8sClient, &envVar, cluster.Namespace)
 			if err != nil {
 				return "", err
 			}
@@ -493,9 +502,22 @@ func (p *portworx) getAuthSecret(
 	return "", nil
 }
 
+func (p *portworx) securityEnabled(cluster *corev1alpha1.StorageCluster) bool {
+	if cluster.Spec.Security != nil {
+		return *cluster.Spec.Security.Enabled
+	}
+
+	return false
+}
+
 // Gets token or from secret for authenticating with the SDK server
 func (p *portworx) setupContextWithToken(ctx context.Context, cluster *corev1alpha1.StorageCluster) (context.Context, error) {
-	pxAuthSecret, err := p.getAuthSecret(ctx, cluster)
+	// auth not declared in cluster spec
+	if !p.securityEnabled(cluster) {
+		return ctx, nil
+	}
+
+	pxAuthSecret, err := p.getAdminSecret(ctx, cluster)
 	if err != nil {
 		return ctx, fmt.Errorf("failed to get auth secret: %v", err.Error())
 	}
@@ -503,8 +525,8 @@ func (p *portworx) setupContextWithToken(ctx context.Context, cluster *corev1alp
 		return ctx, nil
 	}
 
-	// Generate token and add to metadata
-	token, err := p.getOperatorToken(string(pxAuthSecret))
+	// Generate token and add to metadatagetAuthSecret
+	token, err := p.getOperatorToken(cluster, string(pxAuthSecret))
 	if err != nil {
 		return ctx, fmt.Errorf("failed to create operator token: %v", err.Error())
 	}

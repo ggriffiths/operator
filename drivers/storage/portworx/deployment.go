@@ -6,6 +6,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/shlex"
 	"github.com/hashicorp/go-version"
@@ -929,6 +930,12 @@ func (t *template) loadKvdbAuth() map[string]string {
 
 func stringPtr(val string) *string {
 	return &val
+}
+
+func metav1DurationPtr(val time.Duration) *metav1.Duration {
+	return &metav1.Duration{
+		Duration: val,
+	}
 }
 
 func boolPtr(val bool) *bool {
