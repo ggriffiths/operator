@@ -111,7 +111,7 @@ type NodeSpec struct {
 
 // SecuritySpec is used to define the security configuration for a cluster.
 type SecuritySpec struct {
-	Enabled *bool     `json:"enabled,omitempty"`
+	Enabled bool      `json:"enabled,omitempty"`
 	Auth    *AuthSpec `json:"auth,omitempty"`
 }
 
@@ -128,11 +128,11 @@ type GuestAccessType string
 
 var (
 	// GuestRoleEnabled sets the guest role to the default volume lifecycle permissions
-	GuestRoleEnabled = GuestAccessType("enabled")
+	GuestRoleEnabled GuestAccessType = "Enabled"
 	// GuestRoleManaged lets the admin manage the guest role
-	GuestRoleManaged = GuestAccessType("managed")
+	GuestRoleManaged GuestAccessType = "Managed"
 	// GuestRoleDisabled disables all access for the guest role
-	GuestRoleDisabled = GuestAccessType("disabled")
+	GuestRoleDisabled GuestAccessType = "Disabled"
 )
 
 // AuthenticatorsSpec defines which auth mechanisms are setup for PX Security

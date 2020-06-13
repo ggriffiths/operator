@@ -5,9 +5,11 @@ import (
 	"crypto/rand"
 
 	"github.com/hashicorp/go-version"
+	"github.com/libopenstorage/openstorage/api"
 	pxutil "github.com/libopenstorage/operator/drivers/storage/portworx/util"
 	corev1alpha1 "github.com/libopenstorage/operator/pkg/apis/core/v1alpha1"
 	k8sutil "github.com/libopenstorage/operator/pkg/util/k8s"
+	"google.golang.org/grpc"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -24,16 +26,37 @@ const (
 	SecurityPXSystemSecretName = "px-system"
 	// SecurityPXAuthSecretKey is the data key for any secret containing an auth secret
 	SecurityPXAuthSecretKey = "auth-secret"
-	// SecurityEnvKeyPortworxAuthSystemKey is the environment variable name for the PX security secret
-	SecurityEnvKeyPortworxAuthSystemKey = "PORTWORX_AUTH_SYSTEM_KEY"
-	// SecurityEnvPortworxAuthJwtSharedSecret is an environment variable defining the PX Security JWT secret
-	SecurityEnvPortworxAuthJwtSharedSecret = "PORTWORX_AUTH_JWT_SHAREDSECRET"
-	// SecurityEnvPortworxAuthJwtIssuer is an environment variable defining the PX Security JWT Issuer
-	SecurityEnvPortworxAuthJwtIssuer = "PORTWORX_AUTH_JWT_ISSUER"
+	// SecuritySystemGuestRoleName is the role name to maintain for the guest role
+	SecuritySystemGuestRoleName = "system.guest"
 )
+
+var guestRoleEnabled = api.SdkRole{
+	Name: SecuritySystemGuestRoleName,
+	Rules: []*api.SdkRule{
+		{
+			Services: []string{"mountattach", "volume", "cloudbackup", "migrate"},
+			Apis:     []string{"*"},
+		},
+		{
+			Services: []string{"identity"},
+			Apis:     []string{"version"},
+		},
+	},
+}
+
+var guestRoleDisabled = api.SdkRole{
+	Name: SecuritySystemGuestRoleName,
+	Rules: []*api.SdkRule{
+		{
+			Services: []string{"!*"},
+			Apis:     []string{"!*"},
+		},
+	},
+}
 
 type security struct {
 	k8sClient client.Client
+	sdkConn   *grpc.ClientConn
 }
 
 // Initialize initializes the componenet
@@ -48,14 +71,14 @@ func (c *security) Initialize(
 
 // IsEnabled checks if the components needs to be enabled based on the StorageCluster
 func (c *security) IsEnabled(cluster *corev1alpha1.StorageCluster) bool {
-	return cluster.Spec.Security != nil && *cluster.Spec.Security.Enabled
+	return pxutil.SecurityEnabled(cluster)
 }
 
 // Reconcile reconciles the component to match the current state of the StorageCluster
 func (c *security) Reconcile(cluster *corev1alpha1.StorageCluster) error {
 	ownerRef := metav1.NewControllerRef(cluster, pxutil.StorageClusterKind())
 
-	err := c.setJwtIssuer(cluster, ownerRef)
+	err := c.updateSystemGuestRole(cluster)
 	if err != nil {
 		return err
 	}
@@ -93,42 +116,11 @@ func (c *security) MarkDeleted() {
 
 }
 
-func (c *security) setJwtIssuer(
-	cluster *corev1alpha1.StorageCluster,
-	ownerRef *metav1.OwnerReference,
-) error {
-	for i := range cluster.Spec.Env {
-		if cluster.Spec.Env[i].Name == SecurityEnvPortworxAuthJwtIssuer {
-			value, err := pxutil.GetValueFromEnv(context.TODO(), c.k8sClient, &cluster.Spec.Env[i], cluster.Namespace)
-			if err != nil {
-				return err
-			}
-
-			// If value does not equal spec value, update to match the spec
-			if value != *cluster.Spec.Security.Auth.Authenticators.SelfSigned.Issuer {
-				cluster.Spec.Env[i].Value = *cluster.Spec.Security.Auth.Authenticators.SelfSigned.Issuer
-				cluster.Spec.Env[i].ValueFrom = nil
-			}
-
-			// found and updated, exit
-			return nil
-		}
-	}
-
-	// if not found, add default jwt issuer
-	cluster.Spec.Env = append(cluster.Spec.Env, v1.EnvVar{
-		Name:  SecurityEnvPortworxAuthJwtIssuer,
-		Value: *cluster.Spec.Security.Auth.Authenticators.SelfSigned.Issuer,
-	})
-
-	return nil
-}
-
 func (c *security) createAdminSecret(
 	cluster *corev1alpha1.StorageCluster,
 	ownerRef *metav1.OwnerReference,
 ) error {
-	err := c.createAuthSecret(cluster, ownerRef, SecurityEnvPortworxAuthJwtSharedSecret, SecurityPXAdminSecretName)
+	err := c.createAuthSecret(cluster, ownerRef, pxutil.EnvKeyPortworxAuthJwtSharedSecret, SecurityPXAdminSecretName)
 	if err != nil {
 		return err
 	}
@@ -140,7 +132,7 @@ func (c *security) createSystemSecret(
 	cluster *corev1alpha1.StorageCluster,
 	ownerRef *metav1.OwnerReference,
 ) error {
-	err := c.createAuthSecret(cluster, ownerRef, SecurityEnvKeyPortworxAuthSystemKey, SecurityPXSystemSecretName)
+	err := c.createAuthSecret(cluster, ownerRef, pxutil.EnvKeyPortworxAuthSystemKey, SecurityPXSystemSecretName)
 	if err != nil {
 		return err
 	}
@@ -159,7 +151,7 @@ func (c *security) createAuthSecret(
 
 	for _, envVar := range cluster.Spec.Env {
 		if envVar.Name == envVarName {
-			authSecret, err = pxutil.GetValueFromEnv(context.TODO(), c.k8sClient, &envVar, cluster.Namespace)
+			authSecret, err = pxutil.GetValueFromEnvVar(context.TODO(), c.k8sClient, &envVar, cluster.Namespace)
 			if err != nil {
 				return err
 			}
@@ -235,24 +227,50 @@ func addAdminSecretEnv(cluster *corev1alpha1.StorageCluster, envVar string, secr
 	return nil
 }
 
-func (c *security) deleteSystemSecret(cluster *corev1alpha1.StorageCluster) error {
-	systemSecret := &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      SecurityPXSystemSecretName,
-			Namespace: cluster.ObjectMeta.Namespace,
-		},
+func (c *security) updateSystemGuestRole(cluster *corev1alpha1.StorageCluster) error {
+	// managed, do not interfere with system.guest role
+	if *cluster.Spec.Security.Auth.GuestAccess == corev1alpha1.GuestRoleManaged {
+		return nil
 	}
-	return c.k8sClient.Delete(context.TODO(), systemSecret)
+
+	var err error
+	pxConn, err := pxutil.GetPortworxConn(c.sdkConn, c.k8sClient, cluster.Namespace)
+	if err != nil {
+		return err
+	}
+
+	roleClient := api.NewOpenStorageRoleClient(pxConn)
+	ctx, err := pxutil.SetupContextWithToken(context.Background(), cluster, c.k8sClient)
+	if err != nil {
+		return err
+	}
+
+	var desiredRole *api.SdkRole
+
+	if *cluster.Spec.Security.Auth.GuestAccess == corev1alpha1.GuestRoleEnabled {
+		desiredRole = &guestRoleEnabled
+	} else {
+		desiredRole = &guestRoleDisabled
+	}
+
+	_, err = roleClient.Update(ctx, &api.SdkRoleUpdateRequest{
+		Role: desiredRole,
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *security) deleteSystemSecret(cluster *corev1alpha1.StorageCluster) error {
+	ownerRef := metav1.NewControllerRef(cluster, pxutil.StorageClusterKind())
+	return k8sutil.DeleteSecret(c.k8sClient, SecurityPXSystemSecretName, cluster.Namespace, *ownerRef)
 }
 
 func (c *security) deleteAdminSecret(cluster *corev1alpha1.StorageCluster) error {
-	adminSecret := &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      SecurityPXAdminSecretName,
-			Namespace: cluster.ObjectMeta.Namespace,
-		},
-	}
-	return c.k8sClient.Delete(context.TODO(), adminSecret)
+	ownerRef := metav1.NewControllerRef(cluster, pxutil.StorageClusterKind())
+	return k8sutil.DeleteSecret(c.k8sClient, SecurityPXAdminSecretName, cluster.Namespace, *ownerRef)
 }
 
 // RegisterSecurityComponent registers the security component

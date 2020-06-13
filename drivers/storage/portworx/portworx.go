@@ -1,6 +1,7 @@
 package portworx
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -28,6 +29,14 @@ const (
 	defaultPortworxImage              = "portworx/oci-monitor"
 	defaultSDKPort                    = 9020
 	defaultSecretsProvider            = "k8s"
+	defaultPortworxVersion            = "2.3.2"
+	edgePortworxVersion               = "edge"
+	defaultLighthouseImage            = "portworx/px-lighthouse:2.0.6"
+	defaultAutopilotImage             = "portworx/autopilot:1.0.0"
+	defaultStorkImage                 = "openstorage/stork:2.3.1"
+	defaultNodeWiperImage             = "portworx/px-node-wiper:2.1.4"
+	defaultTokenLifetime              = time.Hour * 24
+	defaultSelfSignedIssuer           = "portworx.io"
 	envKeyNodeWiperImage              = "PX_NODE_WIPER_IMAGE"
 	envKeyPortworxEnableTLS           = "PX_ENABLE_TLS"
 	storageClusterDeleteMsg           = "Portworx service NOT removed. Portworx drives and data NOT wiped."
@@ -420,17 +429,14 @@ func setSecuritySpecDefaults(toUpdate *corev1alpha1.StorageCluster) {
 		GuestAccess: &corev1alpha1.GuestRoleEnabled,
 		Authenticators: &corev1alpha1.AuthenticatorsSpec{
 			SelfSigned: &corev1alpha1.SelfSignedSpec{
-				Issuer:        stringPtr("openstorage.io"),
-				TokenLifetime: metav1DurationPtr(time.Hour * 24),
+				Issuer:        stringPtr(defaultSelfSignedIssuer),
+				TokenLifetime: metav1DurationPtr(defaultTokenLifetime),
 			},
 		},
 	}
 
 	if toUpdate.Spec.Security != nil {
-		if toUpdate.Spec.Security.Enabled == nil {
-			// not enabled by default
-			toUpdate.Spec.Security.Enabled = boolPtr(false)
-		} else if *toUpdate.Spec.Security.Enabled {
+		if toUpdate.Spec.Security.Enabled {
 			if toUpdate.Spec.Security.Auth != nil {
 				// security enabled and auth provided, add defaults if needed.
 				if toUpdate.Spec.Security.Auth.GuestAccess == nil {
@@ -440,10 +446,16 @@ func setSecuritySpecDefaults(toUpdate *corev1alpha1.StorageCluster) {
 					toUpdate.Spec.Security.Auth.Authenticators = defaultAuthTemplate.Authenticators
 				} else {
 					if toUpdate.Spec.Security.Auth.Authenticators.SelfSigned.Issuer == nil {
-						toUpdate.Spec.Security.Auth.Authenticators.SelfSigned.Issuer = defaultAuthTemplate.Authenticators.SelfSigned.Issuer
+						selfSignedEnvVal := pxutil.GetClusterEnvVarValue(context.TODO(), toUpdate, pxutil.EnvKeyPortworxPortworxAuthJwtIssuer)
+
+						if selfSignedEnvVal == "" {
+							toUpdate.Spec.Security.Auth.Authenticators.SelfSigned.Issuer = defaultAuthTemplate.Authenticators.SelfSigned.Issuer
+						} else {
+							toUpdate.Spec.Security.Auth.Authenticators.SelfSigned.Issuer = &selfSignedEnvVal
+						}
 					}
 					if toUpdate.Spec.Security.Auth.Authenticators.SelfSigned.TokenLifetime == nil {
-						toUpdate.Spec.Security.Auth.Authenticators.SelfSigned.TokenLifetime = defaultAuthTemplate.Authenticators.SelfSigned.TokenLifetime
+						toUpdate.Spec.Security.Auth.Authenticators.SelfSigned.Issuer = defaultAuthTemplate.Authenticators.SelfSigned.Issuer
 					}
 				}
 			} else {

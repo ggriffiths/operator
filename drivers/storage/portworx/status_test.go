@@ -8,7 +8,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/libopenstorage/operator/drivers/storage/portworx/component"
+	pxutil "github.com/libopenstorage/operator/drivers/storage/portworx/util"
 	corev1alpha1 "github.com/libopenstorage/operator/pkg/apis/core/v1alpha1"
 	testutil "github.com/libopenstorage/operator/pkg/util/test"
 	"github.com/stretchr/testify/assert"
@@ -162,7 +162,7 @@ func TestSetupContextWithToken(t *testing.T) {
 			// set env vars
 			if tc.pxSharedSecretKey != "" {
 				cluster.Spec.Env = append(cluster.Spec.Env, v1.EnvVar{
-					Name:  component.SecurityEnvKeyPortworxAuthSystemKey,
+					Name:  pxutil.EnvKeyPortworxAuthJwtSharedSecret,
 					Value: tc.pxSharedSecretKey,
 				})
 			}
@@ -170,7 +170,7 @@ func TestSetupContextWithToken(t *testing.T) {
 			// assign valueFrom secrets
 			if tc.pxSecretName != "" {
 				cluster.Spec.Env = append(cluster.Spec.Env, v1.EnvVar{
-					Name: component.SecurityEnvKeyPortworxAuthSystemKey,
+					Name: pxutil.EnvKeyPortworxAuthSystemKey,
 					ValueFrom: &v1.EnvVarSource{
 						SecretKeyRef: &v1.SecretKeySelector{
 							LocalObjectReference: v1.LocalObjectReference{
@@ -185,7 +185,7 @@ func TestSetupContextWithToken(t *testing.T) {
 			// assign valueFrom configmaps
 			if tc.pxConfigMapName != "" {
 				cluster.Spec.Env = append(cluster.Spec.Env, v1.EnvVar{
-					Name: component.SecurityEnvKeyPortworxAuthSystemKey,
+					Name: pxutil.EnvKeyPortworxAuthSystemKey,
 					ValueFrom: &v1.EnvVarSource{
 						ConfigMapKeyRef: &v1.ConfigMapKeySelector{
 							LocalObjectReference: v1.LocalObjectReference{
@@ -200,7 +200,7 @@ func TestSetupContextWithToken(t *testing.T) {
 			p := portworx{
 				k8sClient: k8sClient,
 			}
-			ctx, err := p.setupContextWithToken(context.Background(), cluster)
+			ctx, err := pxutil.SetupContextWithToken(context.Background(), cluster, p.k8sClient)
 			if tc.expectError {
 				assert.Error(t, err)
 				assert.EqualError(t, err, tc.expectedError)

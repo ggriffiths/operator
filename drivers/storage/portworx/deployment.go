@@ -762,6 +762,14 @@ func (t *template) getEnvList() []v1.EnvVar {
 		}
 	}
 
+	// Add JWT Issuer from spec if security is enabled
+	if pxutil.SecurityEnabled(t.cluster) {
+		envMap[pxutil.EnvKeyPortworxAuthSystemKey] = &v1.EnvVar{
+			Name:  pxutil.EnvKeyPortworxAuthSystemKey,
+			Value: *t.cluster.Spec.Security.Auth.Authenticators.SelfSigned.Issuer,
+		}
+	}
+
 	if t.cluster.Spec.ImagePullSecret != nil && *t.cluster.Spec.ImagePullSecret != "" {
 		envMap["REGISTRY_CONFIG"] = &v1.EnvVar{
 			Name: "REGISTRY_CONFIG",

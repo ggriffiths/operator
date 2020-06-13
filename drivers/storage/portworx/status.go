@@ -2,18 +2,12 @@ package portworx
 
 import (
 	"context"
-	"crypto/x509"
 	"fmt"
-	"os"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/libopenstorage/openstorage/api"
-	"github.com/libopenstorage/openstorage/pkg/auth"
-	"github.com/libopenstorage/openstorage/pkg/grpcserver"
-	"github.com/libopenstorage/operator/drivers/storage/portworx/component"
 	pxutil "github.com/libopenstorage/operator/drivers/storage/portworx/util"
 	corev1alpha1 "github.com/libopenstorage/operator/pkg/apis/core/v1alpha1"
 	"github.com/libopenstorage/operator/pkg/util"
@@ -21,8 +15,6 @@ import (
 	operatorops "github.com/portworx/sched-ops/k8s/operator"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/metadata"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,14 +37,15 @@ func (p *portworx) UpdateStorageClusterStatus(
 		return nil
 	}
 
-	clientConn, err := p.getPortworxClient(cluster)
+	var err error
+	p.sdkConn, err = pxutil.GetPortworxConn(p.sdkConn, p.k8sClient, cluster.Namespace)
 	if err != nil {
 		p.updateRemainingStorageNodesWithoutError(cluster, nil)
 		return err
 	}
 
-	clusterClient := api.NewOpenStorageClusterClient(clientConn)
-	ctx, err := p.setupContextWithToken(context.Background(), cluster)
+	clusterClient := api.NewOpenStorageClusterClient(p.sdkConn)
+	ctx, err := pxutil.SetupContextWithToken(context.Background(), cluster, p.k8sClient)
 	if err != nil {
 		return err
 	}
@@ -80,7 +73,7 @@ func (p *portworx) UpdateStorageClusterStatus(
 	cluster.Status.ClusterName = pxCluster.Cluster.Name
 	cluster.Status.ClusterUID = pxCluster.Cluster.Id
 
-	return p.updateStorageNodes(clientConn, cluster)
+	return p.updateStorageNodes(p.sdkConn, cluster)
 }
 
 func (p *portworx) updateStorageNodes(
@@ -88,7 +81,7 @@ func (p *portworx) updateStorageNodes(
 	cluster *corev1alpha1.StorageCluster,
 ) error {
 	nodeClient := api.NewOpenStorageNodeClient(clientConn)
-	ctx, err := p.setupContextWithToken(context.Background(), cluster)
+	ctx, err := pxutil.SetupContextWithToken(context.Background(), cluster, p.k8sClient)
 	if err != nil {
 		return err
 	}
@@ -280,68 +273,8 @@ func (p *portworx) updateStorageNodeStatus(
 			storageNode.Namespace, storageNode.Name)
 		return p.k8sClient.Status().Update(context.TODO(), storageNode)
 	}
+
 	return nil
-}
-
-func (p *portworx) getPortworxClient(
-	cluster *corev1alpha1.StorageCluster,
-) (*grpc.ClientConn, error) {
-	if p.sdkConn != nil {
-		return p.sdkConn, nil
-	}
-
-	pxService := &v1.Service{}
-	err := p.k8sClient.Get(
-		context.TODO(),
-		types.NamespacedName{
-			Name:      pxutil.PortworxServiceName,
-			Namespace: cluster.Namespace,
-		},
-		pxService,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get k8s service spec: %v", err)
-	} else if len(pxService.Spec.ClusterIP) == 0 {
-		return nil, fmt.Errorf("failed to get endpoint for portworx volume driver")
-	}
-
-	endpoint := pxService.Spec.ClusterIP
-	sdkPort := defaultSDKPort
-
-	// Get the ports from service
-	for _, pxServicePort := range pxService.Spec.Ports {
-		if pxServicePort.Name == pxutil.PortworxSDKPortName && pxServicePort.Port != 0 {
-			sdkPort = int(pxServicePort.Port)
-		}
-	}
-
-	endpoint = fmt.Sprintf("%s:%d", endpoint, sdkPort)
-	return p.getGrpcConn(endpoint)
-}
-
-func (p *portworx) getGrpcConn(endpoint string) (*grpc.ClientConn, error) {
-	dialOptions, err := getDialOptions(isTLSEnabled())
-	if err != nil {
-		return nil, err
-	}
-	p.sdkConn, err = grpcserver.Connect(endpoint, dialOptions)
-	if err != nil {
-		return nil, fmt.Errorf("error connecting to GRPC server [%s]: %v", endpoint, err)
-	}
-	return p.sdkConn, nil
-}
-
-func getDialOptions(tls bool) ([]grpc.DialOption, error) {
-	if !tls {
-		return []grpc.DialOption{grpc.WithInsecure()}, nil
-	}
-	capool, err := x509.SystemCertPool()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load CA system certs: %v", err)
-	}
-	return []grpc.DialOption{grpc.WithTransportCredentials(
-		credentials.NewClientTLSFromCert(capool, ""),
-	)}, nil
 }
 
 func mapClusterStatus(status api.Status) corev1alpha1.ClusterConditionStatus {
@@ -445,93 +378,4 @@ func getStorageNodePhase(status *corev1alpha1.NodeStatus) string {
 		return string(corev1alpha1.NodeInitStatus)
 	}
 	return string(latestCondition.Status)
-}
-
-func isTLSEnabled() bool {
-	enabled, err := strconv.ParseBool(os.Getenv(envKeyPortworxEnableTLS))
-	return err == nil && enabled
-}
-
-func (p *portworx) getOperatorToken(
-	cluster *corev1alpha1.StorageCluster,
-	secretkey string,
-) (string, error) {
-	claims := &auth.Claims{
-		Issuer:  *cluster.Spec.Security.Auth.Authenticators.SelfSigned.Issuer,
-		Subject: "operator@openstorage.io",
-		Name:    "operator communications",
-		Email:   "operator@openstorage.io",
-		Roles:   []string{"system.admin"},
-		Groups:  []string{"*"},
-	}
-
-	signature, err := auth.NewSignatureSharedSecret(string(secretkey))
-	if err != nil {
-		return "", err
-	}
-	token, err := auth.Token(claims, signature, &auth.Options{
-		Expiration: time.Now().
-			Add(cluster.Spec.Security.Auth.Authenticators.SelfSigned.TokenLifetime.Duration).Unix(),
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return token, nil
-}
-
-func (p *portworx) getAdminSecret(
-	ctx context.Context,
-	cluster *corev1alpha1.StorageCluster,
-) (string, error) {
-	var authSecret string
-	var err error
-
-	// check for provided secret
-	for _, envVar := range cluster.Spec.Env {
-		if envVar.Name == component.SecurityEnvPortworxAuthJwtSharedSecret {
-			authSecret, err = pxutil.GetValueFromEnv(ctx, p.k8sClient, &envVar, cluster.Namespace)
-			if err != nil {
-				return "", err
-			}
-
-			return authSecret, nil
-		}
-	}
-
-	return "", nil
-}
-
-func (p *portworx) securityEnabled(cluster *corev1alpha1.StorageCluster) bool {
-	if cluster.Spec.Security != nil {
-		return *cluster.Spec.Security.Enabled
-	}
-
-	return false
-}
-
-// Gets token or from secret for authenticating with the SDK server
-func (p *portworx) setupContextWithToken(ctx context.Context, cluster *corev1alpha1.StorageCluster) (context.Context, error) {
-	// auth not declared in cluster spec
-	if !p.securityEnabled(cluster) {
-		return ctx, nil
-	}
-
-	pxAuthSecret, err := p.getAdminSecret(ctx, cluster)
-	if err != nil {
-		return ctx, fmt.Errorf("failed to get auth secret: %v", err.Error())
-	}
-	if pxAuthSecret == "" {
-		return ctx, nil
-	}
-
-	// Generate token and add to metadatagetAuthSecret
-	token, err := p.getOperatorToken(cluster, string(pxAuthSecret))
-	if err != nil {
-		return ctx, fmt.Errorf("failed to create operator token: %v", err.Error())
-	}
-	md := metadata.New(map[string]string{
-		"authorization": "bearer " + token,
-	})
-	return metadata.NewOutgoingContext(ctx, md), nil
 }
