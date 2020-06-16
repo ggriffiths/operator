@@ -95,8 +95,8 @@ const (
 	EnvKeyPortworxAuthSystemKey = "PORTWORX_AUTH_SYSTEM_KEY"
 	// EnvKeyPortworxAuthJwtSharedSecret is an environment variable defining the PX Security JWT secret
 	EnvKeyPortworxAuthJwtSharedSecret = "PORTWORX_AUTH_JWT_SHAREDSECRET"
-	// EnvKeyPortworxPortworxAuthJwtIssuer is an environment variable defining the PX Security JWT Issuer
-	EnvKeyPortworxPortworxAuthJwtIssuer = "PORTWORX_AUTH_JWT_ISSUER"
+	// EnvKeyPortworxAuthJwtIssuer is an environment variable defining the PX Security JWT Issuer
+	EnvKeyPortworxAuthJwtIssuer = "PORTWORX_AUTH_JWT_ISSUER"
 
 	pxAnnotationPrefix = "portworx.io"
 	labelKeyName       = "name"

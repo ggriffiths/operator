@@ -20,12 +20,12 @@ import (
 const (
 	// SecurityComponentName is the name for registering this component
 	SecurityComponentName = "Security"
-	// SecurityPXAdminSecretName is the admin secret name for PX security
-	SecurityPXAdminSecretName = "px-admin"
-	// SecurityPXSystemSecretName is the system secret name for PX security
-	SecurityPXSystemSecretName = "px-system"
-	// SecurityPXAuthSecretKey is the data key for any secret containing an auth secret
-	SecurityPXAuthSecretKey = "auth-secret"
+	// SecurityPXPrivateKeysSecretName is the admin secret name for PX security
+	SecurityPXPrivateKeysSecretName = "px-private-keys"
+	// SecuritySharedSecretKey is the data key for any secret containing an auth secret
+	SecuritySharedSecretKey = "shared-secret-key"
+	// SecuritySystemSecretKey is the data key for any secret containing an auth secret
+	SecuritySystemSecretKey = "system-secret-key"
 	// SecuritySystemGuestRoleName is the role name to maintain for the guest role
 	SecuritySystemGuestRoleName = "system.guest"
 )
@@ -83,12 +83,7 @@ func (c *security) Reconcile(cluster *corev1alpha1.StorageCluster) error {
 		return err
 	}
 
-	err = c.createSystemSecret(cluster, ownerRef)
-	if err != nil {
-		return err
-	}
-
-	err = c.createAdminSecret(cluster, ownerRef)
+	err = c.createPrivateKeysSecret(cluster, ownerRef)
 	if err != nil {
 		return err
 	}
@@ -98,12 +93,9 @@ func (c *security) Reconcile(cluster *corev1alpha1.StorageCluster) error {
 
 // Delete deletes the component if present
 func (c *security) Delete(cluster *corev1alpha1.StorageCluster) error {
-	err := c.deleteSystemSecret(cluster)
-	if err != nil {
-		return err
-	}
+	ownerRef := metav1.NewControllerRef(cluster, pxutil.StorageClusterKind())
 
-	err = c.deleteAdminSecret(cluster)
+	err := c.deletePrivateKeysSecret(cluster, ownerRef)
 	if err != nil {
 		return err
 	}
@@ -116,11 +108,11 @@ func (c *security) MarkDeleted() {
 
 }
 
-func (c *security) createAdminSecret(
+func (c *security) createPrivateKeysSecret(
 	cluster *corev1alpha1.StorageCluster,
 	ownerRef *metav1.OwnerReference,
 ) error {
-	err := c.createAuthSecret(cluster, ownerRef, pxutil.EnvKeyPortworxAuthJwtSharedSecret, SecurityPXAdminSecretName)
+	err := c.createPrivateKeySecret(cluster, ownerRef, pxutil.EnvKeyPortworxAuthJwtSharedSecret, SecurityPXPrivateKeysSecretName)
 	if err != nil {
 		return err
 	}
@@ -128,19 +120,7 @@ func (c *security) createAdminSecret(
 	return nil
 }
 
-func (c *security) createSystemSecret(
-	cluster *corev1alpha1.StorageCluster,
-	ownerRef *metav1.OwnerReference,
-) error {
-	err := c.createAuthSecret(cluster, ownerRef, pxutil.EnvKeyPortworxAuthSystemKey, SecurityPXSystemSecretName)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *security) createAuthSecret(
+func (c *security) createPrivateKeySecret(
 	cluster *corev1alpha1.StorageCluster,
 	ownerRef *metav1.OwnerReference,
 	envVarName string,
@@ -171,7 +151,7 @@ func (c *security) createAuthSecret(
 				Namespace: cluster.ObjectMeta.Namespace,
 			},
 			StringData: map[string]string{
-				SecurityPXAuthSecretKey: authSecret,
+				SecuritySystemSecretKey: authSecret,
 			},
 		}
 
@@ -190,7 +170,7 @@ func (c *security) createAuthSecret(
 }
 
 func generateAuthSecret() (string, error) {
-	var password = make([]byte, 32)
+	var password = make([]byte, 64)
 	_, err := rand.Read(password)
 	if err != nil {
 		return "", err
@@ -218,7 +198,7 @@ func addAdminSecretEnv(cluster *corev1alpha1.StorageCluster, envVar string, secr
 					LocalObjectReference: v1.LocalObjectReference{
 						Name: secretName,
 					},
-					Key: SecurityPXAuthSecretKey,
+					Key: SecuritySystemSecretKey,
 				},
 			},
 		})
@@ -263,14 +243,11 @@ func (c *security) updateSystemGuestRole(cluster *corev1alpha1.StorageCluster) e
 	return nil
 }
 
-func (c *security) deleteSystemSecret(cluster *corev1alpha1.StorageCluster) error {
-	ownerRef := metav1.NewControllerRef(cluster, pxutil.StorageClusterKind())
-	return k8sutil.DeleteSecret(c.k8sClient, SecurityPXSystemSecretName, cluster.Namespace, *ownerRef)
-}
-
-func (c *security) deleteAdminSecret(cluster *corev1alpha1.StorageCluster) error {
-	ownerRef := metav1.NewControllerRef(cluster, pxutil.StorageClusterKind())
-	return k8sutil.DeleteSecret(c.k8sClient, SecurityPXAdminSecretName, cluster.Namespace, *ownerRef)
+func (c *security) deletePrivateKeysSecret(
+	cluster *corev1alpha1.StorageCluster,
+	ownerRef *metav1.OwnerReference,
+) error {
+	return k8sutil.DeleteSecret(c.k8sClient, SecurityPXPrivateKeysSecretName, cluster.Namespace, *ownerRef)
 }
 
 // RegisterSecurityComponent registers the security component

@@ -157,7 +157,13 @@ func TestSetupContextWithToken(t *testing.T) {
 					Name:      "testcluster",
 					Namespace: "ns",
 				},
+				Spec: corev1alpha1.StorageClusterSpec{
+					Security: &corev1alpha1.SecuritySpec{
+						Enabled: true,
+					},
+				},
 			}
+			setSecuritySpecDefaults(cluster)
 
 			// set env vars
 			if tc.pxSharedSecretKey != "" {
@@ -170,7 +176,7 @@ func TestSetupContextWithToken(t *testing.T) {
 			// assign valueFrom secrets
 			if tc.pxSecretName != "" {
 				cluster.Spec.Env = append(cluster.Spec.Env, v1.EnvVar{
-					Name: pxutil.EnvKeyPortworxAuthSystemKey,
+					Name: pxutil.EnvKeyPortworxAuthJwtSharedSecret,
 					ValueFrom: &v1.EnvVarSource{
 						SecretKeyRef: &v1.SecretKeySelector{
 							LocalObjectReference: v1.LocalObjectReference{
@@ -185,7 +191,7 @@ func TestSetupContextWithToken(t *testing.T) {
 			// assign valueFrom configmaps
 			if tc.pxConfigMapName != "" {
 				cluster.Spec.Env = append(cluster.Spec.Env, v1.EnvVar{
-					Name: pxutil.EnvKeyPortworxAuthSystemKey,
+					Name: pxutil.EnvKeyPortworxAuthJwtSharedSecret,
 					ValueFrom: &v1.EnvVarSource{
 						ConfigMapKeyRef: &v1.ConfigMapKeySelector{
 							LocalObjectReference: v1.LocalObjectReference{

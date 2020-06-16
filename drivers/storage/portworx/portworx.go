@@ -446,12 +446,12 @@ func setSecuritySpecDefaults(toUpdate *corev1alpha1.StorageCluster) {
 					toUpdate.Spec.Security.Auth.Authenticators = defaultAuthTemplate.Authenticators
 				} else {
 					if toUpdate.Spec.Security.Auth.Authenticators.SelfSigned.Issuer == nil {
-						selfSignedEnvVal := pxutil.GetClusterEnvVarValue(context.TODO(), toUpdate, pxutil.EnvKeyPortworxPortworxAuthJwtIssuer)
+						selfSignedIssuerEnvVal := pxutil.GetClusterEnvVarValue(context.TODO(), toUpdate, pxutil.EnvKeyPortworxAuthJwtIssuer)
 
-						if selfSignedEnvVal == "" {
+						if selfSignedIssuerEnvVal == "" {
 							toUpdate.Spec.Security.Auth.Authenticators.SelfSigned.Issuer = defaultAuthTemplate.Authenticators.SelfSigned.Issuer
 						} else {
-							toUpdate.Spec.Security.Auth.Authenticators.SelfSigned.Issuer = &selfSignedEnvVal
+							toUpdate.Spec.Security.Auth.Authenticators.SelfSigned.Issuer = &selfSignedIssuerEnvVal
 						}
 					}
 					if toUpdate.Spec.Security.Auth.Authenticators.SelfSigned.TokenLifetime == nil {
