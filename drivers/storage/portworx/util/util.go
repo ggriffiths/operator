@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -72,6 +73,9 @@ const (
 	// AnnotationDisableStorageClass annotation to disable installing default portworx
 	// storage classes
 	AnnotationDisableStorageClass = pxAnnotationPrefix + "/disable-storage-class"
+	// AnnotationLastUpdatedTimestamp is the annotation used for the operator to determine
+	// the last time it updated an object
+	AnnotationLastUpdatedTimestamp = pxAnnotationPrefix + "/lastUpdatedTimestamp"
 
 	// EnvKeyPXImage key for the environment variable that specifies Portworx image
 	EnvKeyPXImage = "PX_IMAGE"
@@ -453,6 +457,23 @@ func GenerateToken(
 	return token, nil
 }
 
+// GetSecretKeyValue gets any key value from a k8s secret
+func GetSecretKeyValue(
+	ctx context.Context,
+	cluster *corev1alpha1.StorageCluster,
+	k8sClient client.Client,
+	secret *v1.Secret,
+	secretKey string,
+) (string, error) {
+	// check for secretName
+	value, ok := secret.Data[secretKey]
+	if !ok || len(value) <= 0 {
+		return "", fmt.Errorf("failed to get key %s inside secret %s/%s", secretKey, cluster.Namespace, secret.Name)
+	}
+
+	return string(value), nil
+}
+
 // GetSecretValue gets any secret key value from k8s and decodes to a string value
 func GetSecretValue(
 	ctx context.Context,
@@ -473,12 +494,28 @@ func GetSecretValue(
 	if err != nil {
 		return "", err
 	}
-	value, ok := secret.Data[secretKey]
-	if !ok || len(value) <= 0 {
-		return "", fmt.Errorf("failed to get key %s inside secret %s/%s", secretKey, cluster.Namespace, secretName)
+
+	return GetSecretKeyValue(ctx, cluster, k8sClient, &secret, secretKey)
+}
+
+// GetObjectMetaLastUpdated returns the lastUpdatedTimestamp Unix timestamp
+func GetObjectMetaLastUpdated(md *metav1.ObjectMeta) (int64, error) {
+	lastUpdatedValue, ok := md.Annotations[lastUpdatedTimestampAnnotation]
+	if !ok {
+		return 0, fmt.Errorf("lastUpdatedValue not present in %s", md.GetName())
+	}
+	lastUpdatedTimestamp, err := strconv.ParseInt(lastUpdatedValue, 10, 64)
+	if err != nil {
+		return 0, err
 	}
 
-	return string(value), nil
+	return lastUpdatedTimestamp, nil
+}
+
+// SetObjectMetaLastUpdated sets the lastUpdatedTimestamp Unix timestamp
+func SetObjectMetaLastUpdated(md *metav1.ObjectMeta) *metav1.ObjectMeta {
+	md.Annotations[lastUpdatedTimestampAnnotation] = strconv.FormatInt(time.Now().Unix(), 10)
+	return md
 }
 
 // SecurityEnabled checks if the security flag is set for a cluster

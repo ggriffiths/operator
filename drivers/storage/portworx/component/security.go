@@ -286,14 +286,12 @@ func (c *security) maintainAuthTokenSecret(
 	groups []string,
 ) error {
 
-	expired, err := c.isTokenSecretExpired(cluster, authTokenSecretName)
+	expired, err := c.isTokenSecretRefreshRequired(cluster, authTokenSecretName)
 	if err != nil {
 		return err
 	}
 	if expired {
-		// Get PX auth secret from k8s secret.
-		var authSecret string
-		authSecret, err = pxutil.GetSecretValue(context.TODO(), cluster, c.k8sClient, *cluster.Spec.Security.Auth.SelfSigned.SharedSecret, pxutil.SecuritySharedSecretKey)
+		authSecret, err := pxutil.GetSecretValue(context.TODO(), cluster, c.k8sClient, *cluster.Spec.Security.Auth.SelfSigned.SharedSecret, pxutil.SecuritySharedSecretKey)
 		if err != nil {
 			return err
 		}
@@ -332,13 +330,49 @@ func (c *security) maintainAuthTokenSecret(
 	return nil
 }
 
-func (c *security) isTokenSecretExpired(
+func (c *security) isTokenSecretRefreshRequired(
 	cluster *corev1alpha1.StorageCluster,
 	authTokenSecretName string,
 ) (bool, error) {
 
-	var authToken string
-	authToken, err := pxutil.GetSecretValue(context.TODO(), cluster, c.k8sClient, authTokenSecretName, pxutil.SecurityAuthTokenKey)
+	// Get auth secret and key value inside
+	k8sAuthSecret := v1.Secret{}
+	err := c.k8sClient.Get(context.TODO(),
+		types.NamespacedName{
+			Name:      pxutil.SecurityPXSharedSecretSecretName,
+			Namespace: cluster.Namespace,
+		},
+		&k8sAuthSecret,
+	)
+	if err != nil {
+		return true, err
+	}
+
+	// Get Token Secret
+	k8sTokenSecret := v1.Secret{}
+	err = c.k8sClient.Get(context.TODO(),
+		types.NamespacedName{
+			Name:      authTokenSecretName,
+			Namespace: cluster.Namespace,
+		},
+		&k8sTokenSecret,
+	)
+	if errors.IsNotFound(err) {
+		// Secret treated as expired if not found.
+		// Return authSecretValue for token generation.
+		return true, nil
+	} else if err != nil {
+		return false, fmt.Errorf("failed to check token secret expiration %s: %s ", authTokenSecretName, err.Error())
+	}
+
+	// If no last updated time, assume it is expired
+	k8sAuthSecretLastUpdated, err := pxutil.GetObjectMetaLastUpdated(&k8sAuthSecret.ObjectMeta)
+	if err != nil {
+		return true, nil
+	}
+
+	// Get auth token
+	authToken, err := pxutil.GetSecretKeyValue(context.TODO(), cluster, c.k8sClient, &k8sTokenSecret, pxutil.SecurityAuthTokenKey)
 	if errors.IsNotFound(err) {
 		// Secret treated as expired if not found
 		return true, nil
@@ -353,8 +387,13 @@ func (c *security) isTokenSecretExpired(
 	}
 
 	// add some buffer to prevent missing a token refresh
-	tokenExpiryBuffer := time.Now().Add(SecurityTokenBufferLength).Unix()
-	if tokenExpiryBuffer > exp {
+	currentTimeWithBuffer := time.Now().Add(SecurityTokenBufferLength).Unix()
+	if currentTimeWithBuffer > exp {
+		// token has expired
+		return true, nil
+	}
+	if currentTimeWithBuffer > k8sAuthSecretLastUpdated {
+		// auth secret has been updated, new token is needed
 		return true, nil
 	}
 
