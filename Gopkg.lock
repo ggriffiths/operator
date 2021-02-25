@@ -894,10 +894,11 @@
   version = "v2.2.2"
 
 [[projects]]
-  digest = "1:7c8aa3314a09842a52546b380fb7864c92181bf4ed8ceeb4bc1c77ae0d9bfa4f"
+  digest = "1:2683692e4995130a515ac421e3d68236d41e91eef8182764fb3e0aaacc448c7b"
   name = "k8s.io/api"
   packages = [
     "admission/v1beta1",
+    "admissionregistration/v1",
     "admissionregistration/v1beta1",
     "apps/v1",
     "apps/v1beta1",
@@ -917,8 +918,11 @@
     "coordination/v1",
     "coordination/v1beta1",
     "core/v1",
+    "discovery/v1alpha1",
+    "discovery/v1beta1",
     "events/v1beta1",
     "extensions/v1beta1",
+    "flowcontrol/v1alpha1",
     "networking/v1",
     "networking/v1beta1",
     "node/v1alpha1",
@@ -936,8 +940,8 @@
     "storage/v1beta1",
   ]
   pruneopts = "UT"
-  revision = "e3a6b8045b0b303430f6d0c261fd9e35be50800e"
-  version = "kubernetes-1.14.6"
+  revision = "435b637a2a070045a289f0fcb6446129b67f0bcc"
+  version = "kubernetes-1.18.16"
 
 [[projects]]
   digest = "1:5b8625b724db2d4cb015409219564151f2e6ea28bb566a7994d4d72737588c18"
@@ -1034,7 +1038,7 @@
   version = "kubernetes-1.14.6"
 
 [[projects]]
-  digest = "1:ef928751d105b27d8fd51f81d272f59e8f26150ffe40dc8d5903d15483bb94b5"
+  digest = "1:30bb3ea082f59e2171a31cb013193deb3d8a6cf8589097deaab3dee64e389570"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1042,6 +1046,7 @@
     "dynamic",
     "informers",
     "informers/admissionregistration",
+    "informers/admissionregistration/v1",
     "informers/admissionregistration/v1beta1",
     "informers/apps",
     "informers/apps/v1",
@@ -1064,10 +1069,15 @@
     "informers/coordination/v1beta1",
     "informers/core",
     "informers/core/v1",
+    "informers/discovery",
+    "informers/discovery/v1alpha1",
+    "informers/discovery/v1beta1",
     "informers/events",
     "informers/events/v1beta1",
     "informers/extensions",
     "informers/extensions/v1beta1",
+    "informers/flowcontrol",
+    "informers/flowcontrol/v1alpha1",
     "informers/internalinterfaces",
     "informers/networking",
     "informers/networking/v1",
@@ -1094,6 +1104,8 @@
     "kubernetes",
     "kubernetes/fake",
     "kubernetes/scheme",
+    "kubernetes/typed/admissionregistration/v1",
+    "kubernetes/typed/admissionregistration/v1/fake",
     "kubernetes/typed/admissionregistration/v1beta1",
     "kubernetes/typed/admissionregistration/v1beta1/fake",
     "kubernetes/typed/apps/v1",
@@ -1132,10 +1144,16 @@
     "kubernetes/typed/coordination/v1beta1/fake",
     "kubernetes/typed/core/v1",
     "kubernetes/typed/core/v1/fake",
+    "kubernetes/typed/discovery/v1alpha1",
+    "kubernetes/typed/discovery/v1alpha1/fake",
+    "kubernetes/typed/discovery/v1beta1",
+    "kubernetes/typed/discovery/v1beta1/fake",
     "kubernetes/typed/events/v1beta1",
     "kubernetes/typed/events/v1beta1/fake",
     "kubernetes/typed/extensions/v1beta1",
     "kubernetes/typed/extensions/v1beta1/fake",
+    "kubernetes/typed/flowcontrol/v1alpha1",
+    "kubernetes/typed/flowcontrol/v1alpha1/fake",
     "kubernetes/typed/networking/v1",
     "kubernetes/typed/networking/v1/fake",
     "kubernetes/typed/networking/v1beta1",
@@ -1166,6 +1184,7 @@
     "kubernetes/typed/storage/v1alpha1/fake",
     "kubernetes/typed/storage/v1beta1",
     "kubernetes/typed/storage/v1beta1/fake",
+    "listers/admissionregistration/v1",
     "listers/admissionregistration/v1beta1",
     "listers/apps/v1",
     "listers/apps/v1beta1",
@@ -1181,8 +1200,11 @@
     "listers/coordination/v1",
     "listers/coordination/v1beta1",
     "listers/core/v1",
+    "listers/discovery/v1alpha1",
+    "listers/discovery/v1beta1",
     "listers/events/v1beta1",
     "listers/extensions/v1beta1",
+    "listers/flowcontrol/v1alpha1",
     "listers/networking/v1",
     "listers/networking/v1beta1",
     "listers/node/v1alpha1",
@@ -1234,8 +1256,8 @@
     "util/workqueue",
   ]
   pruneopts = "UT"
-  revision = "7e43eff7c80aab1d14728f84248931b9db28bdc0"
-  version = "kubernetes-1.14.6"
+  revision = "eac3e14b8aebedd95f13ca2b0a6b7d286a31a03d"
+  version = "kubernetes-1.18.16"
 
 [[projects]]
   branch = "master"

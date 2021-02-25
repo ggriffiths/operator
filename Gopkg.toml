@@ -64,7 +64,7 @@ required = [
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.14.6"
+  version = "kubernetes-1.18.16"
 
 [[override]]
   name = "k8s.io/apimachinery"
@@ -72,7 +72,7 @@ required = [
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.14.6"
+  version = "kubernetes-1.18.16"
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
