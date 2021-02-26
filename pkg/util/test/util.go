@@ -16,7 +16,6 @@ import (
 	"testing"
 	"time"
 
-	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/golang/mock/gomock"
 	"github.com/libopenstorage/openstorage/api"
 	corev1 "github.com/libopenstorage/operator/pkg/apis/core/v1"
@@ -28,6 +27,7 @@ import (
 	operatorops "github.com/portworx/sched-ops/k8s/operator"
 	prometheusops "github.com/portworx/sched-ops/k8s/prometheus"
 	"github.com/portworx/sched-ops/task"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"

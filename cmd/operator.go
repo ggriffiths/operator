@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/libopenstorage/operator/drivers/storage"
 	_ "github.com/libopenstorage/operator/drivers/storage/portworx"
 	"github.com/libopenstorage/operator/pkg/apis"
@@ -15,6 +14,7 @@ import (
 	_ "github.com/libopenstorage/operator/pkg/log"
 	"github.com/libopenstorage/operator/pkg/version"
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 	v1 "k8s.io/api/core/v1"
