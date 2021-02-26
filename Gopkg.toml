@@ -44,7 +44,7 @@ required = [
 
 [[constraint]]
   name = "github.com/portworx/sched-ops"
-  branch = "master"
+  version = "test-1.20"
 
 [[constraint]]
   name = "github.com/libopenstorage/openstorage"
@@ -60,31 +60,31 @@ required = [
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  version = "=1.14.6"
+  version = "=1.20.4"
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.18.16"
+  version = "kubernetes-1.20.4"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.14.6"
+  version = "kubernetes-1.20.4"
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.18.16"
+  version = "kubernetes-1.20.4"
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.14.6"
+  version = "kubernetes-1.20.4"
 
 [[override]]
   name = "k8s.io/apiserver"
-  version = "kubernetes-1.14.6"
+  version = "kubernetes-1.20.4"
 
-[[constraint]]
+[[override]]
   name = "k8s.io/code-generator"
-  version = "kubernetes-1.14.6"
+  version = "kubernetes-1.20.4"
 
 [[override]]
   name = "github.com/coreos/prometheus-operator"
@@ -97,8 +97,7 @@ required = [
 [[constraint]]
   name = "github.com/golang/protobuf"
   version = "v1.3.0"
-
-
+  
 # For dependency below: Refer to issue https://github.com/golang/dep/issues/1799
 [[override]]
   name = "gopkg.in/fsnotify.v1"
@@ -112,3 +111,19 @@ required = [
   name = "k8s.io/code-generator"
   unused-packages = false
   go-tests = false
+
+[[prune.project]]
+  name = "sigs.k8s.io/structured-merge-diff"
+  unused-packages = false
+  go-tests = false
+
+[[prune.project]]
+  name = "k8s.io/kube-openapi"
+  unused-packages = true
+  go-tests = false
+
+[[prune.project]]
+  name = "github.com/googleapis/gnostic"
+  unused-packages = true
+  go-tests = false
+

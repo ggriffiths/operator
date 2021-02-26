@@ -16,7 +16,7 @@ import (
 	coreops "github.com/portworx/sched-ops/k8s/core"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -24,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fakek8sclient "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/record"
-	schedulerv1 "k8s.io/kubernetes/pkg/scheduler/api/v1"
 )
 
 func TestStorkInstallation(t *testing.T) {
@@ -87,12 +86,12 @@ func TestStorkInstallation(t *testing.T) {
 	require.NoError(t, err)
 
 	// Stork ConfigMap
-	expectedPolicy, _ := json.Marshal(schedulerv1.Policy{
+	expectedPolicy, _ := json.Marshal(sv1.Policy{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Policy",
 			APIVersion: "v1",
 		},
-		ExtenderConfigs: []schedulerv1.ExtenderConfig{
+		ExtenderConfigs: []sv1.ExtenderConfig{
 			{
 				URLPrefix:      "http://stork-service.kube-test:8099",
 				FilterVerb:     "filter",
@@ -1934,12 +1933,12 @@ func TestStorkWithConfigReconciliationDisabled(t *testing.T) {
 		AnyTimes()
 
 	// TestCase: Deploy default policy when stork is deployed
-	defaultPolicy := &schedulerv1.Policy{
+	defaultPolicy := &sv1.Policy{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Policy",
 			APIVersion: "v1",
 		},
-		ExtenderConfigs: []schedulerv1.ExtenderConfig{
+		ExtenderConfigs: []sv1.ExtenderConfig{
 			{
 				URLPrefix:      "http://stork-service.kube-test:8099",
 				FilterVerb:     "filter",

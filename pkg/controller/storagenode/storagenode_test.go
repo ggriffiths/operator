@@ -29,7 +29,6 @@ import (
 	fakek8sclient "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/kubernetes/pkg/scheduler/api"
 	cluster_v1alpha1 "sigs.k8s.io/cluster-api/pkg/apis/deprecated/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -746,7 +745,7 @@ func TestReconcileKVDBWithNodeChanges(t *testing.T) {
 	timeAdded := metav1.Now()
 	k8sNode.Spec.Taints = []v1.Taint{
 		{
-			Key:       api.TaintNodeUnschedulable,
+			Key:       v1.TaintNodeUnschedulable,
 			TimeAdded: &timeAdded,
 		},
 	}

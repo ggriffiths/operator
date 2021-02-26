@@ -824,6 +824,13 @@ func getCSIStatefulSetSpec(
 func (c *csi) createCSIDriver(
 	csiConfig *pxutil.CSIConfiguration,
 ) error {
+	volumeLifecycleModes := []storagev1beta1.VolumeLifecycleMode{
+		storagev1beta1.VolumeLifecyclePersistent,
+	}
+	if csiConfig.IncludeEphemeralSupport {
+		volumeLifecycleModes = append(volumeLifecycleModes, storagev1beta1.VolumeLifecycleEphemeral)
+	}
+
 	return k8sutil.CreateOrUpdateCSIDriver(
 		c.k8sClient,
 		&storagev1beta1.CSIDriver{
@@ -831,8 +838,9 @@ func (c *csi) createCSIDriver(
 				Name: csiConfig.DriverName,
 			},
 			Spec: storagev1beta1.CSIDriverSpec{
-				AttachRequired: boolPtr(false),
-				PodInfoOnMount: boolPtr(false),
+				AttachRequired:       boolPtr(false),
+				PodInfoOnMount:       boolPtr(false),
+				VolumeLifecycleModes: volumeLifecycleModes,
 			},
 		},
 	)

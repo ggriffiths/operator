@@ -52,8 +52,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	k8scontroller "k8s.io/kubernetes/pkg/controller"
 	daemonutil "k8s.io/kubernetes/pkg/controller/daemon/util"
-	"k8s.io/kubernetes/pkg/scheduler/algorithm/predicates"
-	schedulernodeinfo "k8s.io/kubernetes/pkg/scheduler/nodeinfo"
 	"k8s.io/utils/integer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -841,25 +839,25 @@ func (c *Controller) nodeShouldRunStoragePod(
 			" for reason: %v", node.Name, cluster.Name, r.GetReason())
 
 		switch reason := r.(type) {
-		case *predicates.InsufficientResourceError:
+		case *predicates_old.InsufficientResourceError:
 			insufficientResourceErr = reason
-		case *predicates.PredicateFailureError:
+		case *predicates_old.PredicateFailureError:
 			var emitEvent bool
 			// we try to partition predicates into two partitions here:
 			// intentional on the part of the operator and not.
 			switch reason {
 			// intentional
 			case
-				predicates.ErrNodeSelectorNotMatch,
-				predicates.ErrPodNotMatchHostName,
-				predicates.ErrNodeLabelPresenceViolated,
+				predicates_old.ErrNodeSelectorNotMatch,
+				predicates_old.ErrPodNotMatchHostName,
+				predicates_old.ErrNodeLabelPresenceViolated,
 				// this one is probably intentional since it's a workaround for not having
 				// pod hard anti affinity.
-				predicates.ErrPodNotFitsHostPorts:
+				predicates_old.ErrPodNotFitsHostPorts:
 				return false, false, false, nil
-			case predicates.ErrTaintsTolerationsNotMatch:
+			case predicates_old.ErrTaintsTolerationsNotMatch:
 				// StorageCluster is expected to respect taints and tolerations
-				fitsNoExecute, _, err := predicates.PodToleratesNodeNoExecuteTaints(newPod, nil, nodeInfo)
+				fitsNoExecute, _, err := predicates_old.PodToleratesNodeNoExecuteTaints(newPod, nil, nodeInfo)
 				if err != nil {
 					return false, false, false, err
 				}
@@ -869,18 +867,18 @@ func (c *Controller) nodeShouldRunStoragePod(
 				wantToRun, shouldSchedule = false, false
 			// unintentional
 			case
-				predicates.ErrDiskConflict,
-				predicates.ErrVolumeZoneConflict,
-				predicates.ErrMaxVolumeCountExceeded,
-				predicates.ErrNodeUnderMemoryPressure,
-				predicates.ErrNodeUnderDiskPressure:
+				predicates_old.ErrDiskConflict,
+				predicates_old.ErrVolumeZoneConflict,
+				predicates_old.ErrMaxVolumeCountExceeded,
+				predicates_old.ErrNodeUnderMemoryPressure,
+				predicates_old.ErrNodeUnderDiskPressure:
 				// wantToRun and shouldContinueRunning are likely true here
 				shouldSchedule = false
 				emitEvent = true
 			// unexpected
 			case
-				predicates.ErrPodAffinityNotMatch,
-				predicates.ErrServiceAffinityViolated:
+				predicates_old.ErrPodAffinityNotMatch,
+				predicates_old.ErrServiceAffinityViolated:
 				logrus.Warnf("unexpected predicate failure reason: %s", reason.GetReason())
 				return false, false, false,
 					fmt.Errorf("unexpected reason: StorageCluster Predicates should not return reason %s", reason.GetReason())
@@ -974,7 +972,7 @@ func (c *Controller) simulate(
 	newPod *v1.Pod,
 	node *v1.Node,
 	cluster *corev1.StorageCluster,
-) ([]predicates.PredicateFailureReason, *schedulernodeinfo.NodeInfo, error) {
+) ([]predicates_old.PredicateFailureReason, *schedulernodeinfo_old.NodeInfo, error) {
 	podList := &v1.PodList{}
 	fieldSelector := fields.SelectorFromSet(map[string]string{nodeNameIndex: node.Name})
 	err := c.client.List(context.TODO(), podList, &client.ListOptions{FieldSelector: fieldSelector})
@@ -982,7 +980,7 @@ func (c *Controller) simulate(
 		return nil, nil, err
 	}
 
-	nodeInfo := schedulernodeinfo.NewNodeInfo()
+	nodeInfo := schedulernodeinfo_old.NewNodeInfo()
 	if err = nodeInfo.SetNode(node); err != nil {
 		logrus.Warnf("Error setting setting node object in cache: %v", err)
 	}
@@ -1068,18 +1066,18 @@ func isControlledByStorageCluster(pod *v1.Pod, uid types.UID) bool {
 // and PodToleratesNodeTaints predicate
 func checkPredicates(
 	pod *v1.Pod,
-	nodeInfo *schedulernodeinfo.NodeInfo,
-) (bool, []predicates.PredicateFailureReason, error) {
-	var predicateFails []predicates.PredicateFailureReason
+	nodeInfo *schedulernodeinfo_old.NodeInfo,
+) (bool, []predicates_old.PredicateFailureReason, error) {
+	var predicateFails []predicates_old.PredicateFailureReason
 
-	fit, reasons, err := predicates.PodToleratesNodeTaints(pod, nil, nodeInfo)
+	fit, reasons, err := predicates_old.PodToleratesNodeTaints(pod, nil, nodeInfo)
 	if err != nil {
 		return false, predicateFails, err
 	}
 	if !fit {
 		predicateFails = append(predicateFails, reasons...)
 	}
-	fit, reasons, err = predicates.GeneralPredicates(pod, nil, nodeInfo)
+	fit, reasons, err = predicates_old.GeneralPredicates(pod, nil, nodeInfo)
 	if err != nil {
 		return false, predicateFails, err
 	}

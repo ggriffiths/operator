@@ -44,8 +44,8 @@ import (
 	fakek8sclient "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/kubernetes/pkg/apis/core"
 	k8scontroller "k8s.io/kubernetes/pkg/controller"
-	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api"
 	cluster_v1alpha1 "sigs.k8s.io/cluster-api/pkg/apis/deprecated/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -1296,7 +1296,7 @@ func TestExtraStoragePodsGetRemoved(t *testing.T) {
 					{
 						MatchFields: []v1.NodeSelectorRequirement{
 							{
-								Key:      schedulerapi.NodeFieldSelectorKeyNodeName,
+								Key:      schedulerNodeFieldSelectorKeyNodeName,
 								Operator: v1.NodeSelectorOpIn,
 								Values:   []string{k8sNode.Name},
 							},
@@ -1513,7 +1513,7 @@ func TestStoragePodFailureDueToNodeSelectorNotMatch(t *testing.T) {
 					{
 						MatchFields: []v1.NodeSelectorRequirement{
 							{
-								Key:      schedulerapi.NodeFieldSelectorKeyNodeName,
+								Key:      core.ObjectNameField,
 								Operator: v1.NodeSelectorOpNotIn,
 								Values:   []string{"k8s-node-1", "k8s-node-2"},
 							},
@@ -5711,7 +5711,7 @@ func TestNodeShouldRunStoragePod(t *testing.T) {
 	timeAdded := metav1.Now()
 	k8sNode.Spec.Taints = []v1.Taint{
 		{
-			Key:       schedulerapi.TaintNodeUnschedulable,
+			Key:       v1.TaintNodeUnschedulable,
 			TimeAdded: &timeAdded,
 		},
 	}
@@ -5726,7 +5726,7 @@ func TestNodeShouldRunStoragePod(t *testing.T) {
 	timeAdded = metav1.NewTime(metav1.Now().Add(-constants.DefaultCordonedRestartDelay))
 	k8sNode.Spec.Taints = []v1.Taint{
 		{
-			Key:       schedulerapi.TaintNodeUnschedulable,
+			Key:       v1.TaintNodeUnschedulable,
 			TimeAdded: &timeAdded,
 		},
 	}

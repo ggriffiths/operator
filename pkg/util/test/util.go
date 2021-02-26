@@ -18,6 +18,7 @@ import (
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/golang/mock/gomock"
+	"github.com/kubernetes/kubernetes/pkg/scheduler/framework"
 	"github.com/libopenstorage/openstorage/api"
 	corev1 "github.com/libopenstorage/operator/pkg/apis/core/v1"
 	"github.com/libopenstorage/operator/pkg/mock"
@@ -44,8 +45,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/kubernetes/pkg/scheduler/algorithm/predicates"
-	schedulernodeinfo "k8s.io/kubernetes/pkg/scheduler/nodeinfo"
 	cluster_v1alpha1 "sigs.k8s.io/cluster-api/pkg/apis/deprecated/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -630,11 +629,11 @@ func getExpectedPxNodeNameList(cluster *corev1.StorageCluster) ([]string, error)
 		if coreops.Instance().IsNodeMaster(node) {
 			continue
 		}
-		nodeInfo := schedulernodeinfo.NewNodeInfo()
+		nodeInfo := framework.NewNodeInfo()
 		nodeInfo.SetNode(&node)
-		if ok, _, _ := predicates.PodMatchNodeSelector(dummyPod, nil, nodeInfo); ok {
-			nodeNameListWithPxPods = append(nodeNameListWithPxPods, node.Name)
-		}
+		// if ok, _, _ := predicates.PodMatchNodeSelector(dummyPod, nil, nodeInfo); ok {
+		// 	nodeNameListWithPxPods = append(nodeNameListWithPxPods, node.Name)
+		// }
 	}
 
 	return nodeNameListWithPxPods, nil

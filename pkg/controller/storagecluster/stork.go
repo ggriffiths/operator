@@ -23,7 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	schedulerv1 "k8s.io/kubernetes/pkg/scheduler/api/v1"
 )
 
 const (
@@ -165,12 +164,12 @@ func (c *Controller) createStorkConfigMap(
 	clusterNamespace string,
 	ownerRef *metav1.OwnerReference,
 ) error {
-	policy := schedulerv1.Policy{
+	policy := sv1.Policy{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Policy",
 			APIVersion: "v1",
 		},
-		ExtenderConfigs: []schedulerv1.ExtenderConfig{
+		ExtenderConfigs: []sv1.ExtenderConfig{
 			{
 				URLPrefix: fmt.Sprintf(
 					"http://%s.%s:%d",

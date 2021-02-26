@@ -174,11 +174,11 @@ func run(c *cli.Context) {
 		log.Fatalf("Error initializing storage node controller: %v", err)
 	}
 
-	if err := storageClusterController.StartWatch(); err != nil {
+	if err := storageClusterController.StartWatch(context.TODO()); err != nil {
 		log.Fatalf("Error start watch on storage cluster controller: %v", err)
 	}
 
-	if err := storageNodeController.StartWatch(); err != nil {
+	if err := storageNodeController.StartWatch(context.TODO()); err != nil {
 		log.Fatalf("Error starting watch on storage node controller: %v", err)
 	}
 
