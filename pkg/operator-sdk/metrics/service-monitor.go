@@ -19,6 +19,7 @@
 package metrics
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/libopenstorage/operator/pkg/operator-sdk/k8sutil"
@@ -52,7 +53,7 @@ func CreateServiceMonitors(config *rest.Config, ns string, services []*v1.Servic
 			continue
 		}
 		sm := GenerateServiceMonitor(s)
-		smc, err := mclient.ServiceMonitors(ns).Create(sm)
+		smc, err := mclient.ServiceMonitors(ns).Create(context.TODO(), sm, metav1.CreateOptions{})
 		if err != nil {
 			return serviceMonitors, err
 		}

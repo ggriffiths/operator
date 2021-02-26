@@ -34,8 +34,6 @@ import (
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var log = logf.Log.WithName("metrics")
-
 var trueVar = true
 
 const (

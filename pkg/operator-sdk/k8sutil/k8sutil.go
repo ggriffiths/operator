@@ -11,6 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Code orignated from https://github.com/operator-framework/operator-sdk/tree/v0.10.x
+// After 1.x of the operator-framework, the pkg/k8sutil package was moved to be internal
+// and is therefore not importable. This package is a copy of that package.
 
 package k8sutil
 
@@ -26,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	discovery "k8s.io/client-go/discovery"
+	"k8s.io/klog"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
