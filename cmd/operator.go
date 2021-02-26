@@ -12,8 +12,8 @@ import (
 	"github.com/libopenstorage/operator/pkg/controller/storagecluster"
 	"github.com/libopenstorage/operator/pkg/controller/storagenode"
 	_ "github.com/libopenstorage/operator/pkg/log"
+	"github.com/libopenstorage/operator/pkg/operator-sdk/metrics"
 	"github.com/libopenstorage/operator/pkg/version"
-	"github.com/operator-framework/operator-sdk/pkg/metrics"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/rest"
-	"k8s.io/kubernetes/staging/src/k8s.io/sample-controller/pkg/signals"
+	"k8s.io/sample-controller/pkg/signals"
 	cluster_v1alpha1 "sigs.k8s.io/cluster-api/pkg/apis/deprecated/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
